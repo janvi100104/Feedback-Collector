@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useActionState } from 'react';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import ErrorDisplay from '@/components/ErrorDisplay';
 
 interface State {
   message: string;
@@ -22,8 +24,45 @@ export default function FeedbackForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Client-side validation
+  const validateForm = () => {
+    const errors: State['errors'] = {};
+    
+    if (!name.trim()) {
+      errors.name = 'Name is required';
+    } else if (name.trim().length < 2) {
+      errors.name = 'Name must be at least 2 characters';
+    } else if (name.trim().length > 50) {
+      errors.name = 'Name must be less than 50 characters';
+    }
+    
+    if (!email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    if (!message.trim()) {
+      errors.message = 'Message is required';
+    } else if (message.trim().length < 10) {
+      errors.message = 'Message must be at least 10 characters';
+    } else if (message.trim().length > 3000) {
+      errors.message = 'Message must be less than 3000 characters';
+    }
+    
+    return errors;
+  };
 
   async function createFeedback(prevState: State, formData: FormData) {
+    // Client-side validation
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      return { message: '', errors };
+    }
+    
+    setIsSubmitting(true);
     try {
       // Get values from formData
       const name = formData.get('name') as string;
@@ -45,7 +84,7 @@ export default function FeedbackForm() {
       if (!response.ok) {
         const errorData = await response.json();
         return {
-          message: 'Failed to submit feedback',
+          message: errorData.error || 'Failed to submit feedback',
           errors: errorData.errors || {},
         };
       }
@@ -56,20 +95,22 @@ export default function FeedbackForm() {
       setMessage('');
 
       const result = await response.json();
-      return { message: 'Feedback submitted successfully!', errors: {} };
+      return { message: 'Thank you! Your feedback has been submitted successfully.', errors: {} };
     } catch (error) {
       return {
-        message: 'An unexpected error occurred.',
+        message: 'An unexpected error occurred. Please check your connection and try again.',
         errors: {},
       };
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   return (
-    <form action={formAction} className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <div className="mb-4">
-        <label htmlFor="name" className="block text-gray-700 font-bold mb-2">
-          Name
+    <form action={formAction} className="space-y-6">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+          Full Name <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
@@ -77,17 +118,20 @@ export default function FeedbackForm() {
           name="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 form-input"
+          placeholder="Enter your full name"
           required
+          disabled={isSubmitting}
+          aria-describedby={state?.errors?.name ? "name-error" : undefined}
         />
         {state?.errors?.name && (
-          <p className="mt-1 text-sm text-red-600">{state.errors.name}</p>
+          <p id="name-error" className="mt-2 text-sm text-red-600">{state.errors.name}</p>
         )}
       </div>
 
-      <div className="mb-4">
-        <label htmlFor="email" className="block text-gray-700 font-bold mb-2">
-          Email
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          Email Address <span className="text-red-500">*</span>
         </label>
         <input
           type="email"
@@ -95,45 +139,62 @@ export default function FeedbackForm() {
           name="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 form-input"
+          placeholder="your.email@example.com"
           required
+          disabled={isSubmitting}
+          aria-describedby={state?.errors?.email ? "email-error" : undefined}
         />
         {state?.errors?.email && (
-          <p className="mt-1 text-sm text-red-600">{state.errors.email}</p>
+          <p id="email-error" className="mt-2 text-sm text-red-600">{state.errors.email}</p>
         )}
       </div>
 
-      <div className="mb-6">
-        <label htmlFor="message" className="block text-gray-700 font-bold mb-2">
-          Feedback Message
+      <div>
+        <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+          Your Feedback <span className="text-red-500">*</span>
         </label>
         <textarea
           id="message"
           name="message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          rows={5}
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 form-input"
+          placeholder="Share your thoughts, suggestions, or concerns..."
           required
+          disabled={isSubmitting}
+          aria-describedby={state?.errors?.message ? "message-error" : undefined}
         ></textarea>
         {state?.errors?.message && (
-          <p className="mt-1 text-sm text-red-600">{state.errors.message}</p>
+          <p id="message-error" className="mt-2 text-sm text-red-600">{state.errors.message}</p>
         )}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div>
         <button
           type="submit"
-          className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          disabled={isSubmitting}
+          className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200 btn-primary ${
+            isSubmitting ? 'opacity-75 cursor-not-allowed' : ''
+          }`}
         >
-          Submit Feedback
+          {isSubmitting ? (
+            <>
+              <LoadingSpinner />
+              <span className="ml-2">Submitting...</span>
+            </>
+          ) : (
+            'Submit Feedback'
+          )}
         </button>
       </div>
 
       {state?.message && (
-        <div className={`mt-4 p-2 text-center ${state.message.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
-          {state.message}
-        </div>
+        <ErrorDisplay 
+          message={state.message} 
+          type={state.message.includes('Thank you') ? 'success' : 'error'} 
+        />
       )}
     </form>
   );
